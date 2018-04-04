@@ -222,11 +222,11 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
                         x_validate, y_validate = get_test_set()
                     feed_dict_validate={placeholder_x: x_validate, placeholder_y: y_validate}
                     loss_validate, correct_cnt_validate  = sess.run([loss, correct_cnt],  feed_dict=feed_dict_validate)
-                    acc_valiate = correct_cnt_validate/x_validate.shape[0]
-                    print("**** On validation set: loss: {:.4f}, acc: {:.4f}".format(loss_validate, acc_valiate))
+                    acc_validate = correct_cnt_validate/x_validate.shape[0]
+                    print("**** On validation set: loss: {:.4f}, acc: {:.4f}".format(loss_validate, acc_validate))
 
                     loss_validate_changes[fold_idx][epoch] = loss_validate
-                    acc_validate_changes[fold_idx][epoch] = acc_valiate
+                    acc_validate_changes[fold_idx][epoch] = acc_validate
 
             print("Time consumed: {}".format(end_time[-1] - start_time))
 
@@ -235,7 +235,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
     print("==> Loss on training set: {:.4f}".format(loss_train_changes[0][-1]))
     print("==> Accuarcy on training set: {:.4f}".format(acc_train_changes[0][-1]))
     print("==> Loss on validation set: {:.4f}".format(loss_validate_changes[0][-1]))
-    print("==> Accuarcy on valiationc set: {:.4f}".format(acc_valiate_changes[0][-1]))
+    print("==> Accuarcy on valiationc set: {:.4f}".format(acc_validate_changes[0][-1]))
 
     # average performance on 5-folds
     if(cross_validate==True):
@@ -249,7 +249,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
     np.savez_compressed('./performance_change_'+hyper_param_str+'.npz',
                             loss_train = loss_train_changes, acc_train = acc_train_changes,
                             loss_validate = loss_validate_changes, acc_validate = acc_validate_changes)
-    verbos=True
+    verbose=True
     if(verbose==True):
         # plot performance change over time for different param settings
         print("\r\nPerformace changes over time under: learning_rate={}, batch size={}, momentum={}".format(learning_rate, BATCH_SIZE, momentum))
