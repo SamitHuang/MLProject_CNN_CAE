@@ -152,7 +152,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
     #y = y[0:512]
 
     params, train_op, loss, correct_cnt, predictions = build_cnn_model(placeholder_x, placeholder_y)
-    cnn_saver = tf.train.Saver() #(var_list=params)
+    cnn_saver = tf.train.Saver(max_to_keep=40) #(var_list=params)
 
     # 1) sample-1: for cross-validation, split into 5-fold.
     skf = StratifiedKFold(n_splits=NUM_FOLD, random_state=10, shuffle=True)
@@ -278,8 +278,8 @@ def test_cnn(x, y, placeholder_x, placeholder_y):
     with tf.Session() as sess:
         #saver = tf.train.import_meta_graph(CNN_MODEL_PATH + "-4.meta")
         saver = tf.train.Saver()
-        saver.restore(sess,tf.train.latest_checkpoint("../checkpoints"))
-        #saver.restore(sess, "../checkpoints/cnn_model-3") # select the model generated in epoch 3
+        #saver.restore(sess,tf.train.latest_checkpoint("../checkpoints/well_trained"))
+        saver.restore(sess, "../checkpoints/well_trained/cnn_model-12") # select the model generated in epoch 3
         #print(tf.train.latest_checkpoint("../checkpoints/"))
 
         NUM_BATCHES = int(math.ceil(x.shape[0]/BATCH_SIZE))
