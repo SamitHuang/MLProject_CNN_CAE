@@ -26,7 +26,7 @@ STEP_VALIDATE_EPOCH=1 # check performance on the validation set every EPOCH_VALI
 NUM_FOLD = 5
 
 #MODEL_NAME = ""
-CNN_MODEL_PATH = "../checkpoints/tuning2/cnn_model"
+CNN_MODEL_PATH = "../checkpoints/cnn_model"
 
 # Following functions are helper functions that you can feel free to change
 def convert_image_data_to_float(image_raw):
@@ -278,7 +278,7 @@ def test_cnn(x, y, placeholder_x, placeholder_y):
     with tf.Session() as sess:
         #saver = tf.train.import_meta_graph(CNN_MODEL_PATH + "-4.meta")
         saver = tf.train.Saver()
-        saver.restore(sess,tf.train.latest_checkpoint("../checkpoints/tuning/"))
+        saver.restore(sess,tf.train.latest_checkpoint("../checkpoints"))
         #saver.restore(sess, "../checkpoints/cnn_model-3") # select the model generated in epoch 3
         #print(tf.train.latest_checkpoint("../checkpoints/"))
 
