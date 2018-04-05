@@ -1,3 +1,8 @@
+Enviroment and packages that I test:
+Python 3.5
+Tensorflow 1.70
+Other python packages: sklearn, scipy, matplotlib, etc.
+
 
 Task 1: CNN
 1) To start training and tuning with cross-validation, please run (e.g.): 
@@ -30,7 +35,7 @@ BS  Acc     Loss    Time per fold(s)
 Momentum    Acc     Loss    Time per fold(s) 
 0.1         0.8393  0.541   101
 0.5         0.84    0.5207  101
-0.9         0.8476  0.475   101
+0.9         0.8476  0.475   101)
 
 Best params: lr=0.01, batch_size=64, momentum=0.9
 Performance:
@@ -46,7 +51,7 @@ Task 2: CAE
     It will compute the loss of the CAE model on the training set while training.
     
 2) To evaluate the CAE model and compute the feature maps and reconstructed images for CAE training, please run: 
-    $ python main,py --task=evaluate_ae --datapath=../datasets
+    $ python main.py --task=evaluate_ae --datapath=../datasets
     
     It will report the loss of the trained CAE on evaluation set and show visualization results.
     Plase make sure  the "checkpoints" directory is in the right position as I have already uploaded.

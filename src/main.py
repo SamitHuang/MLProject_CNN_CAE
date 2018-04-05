@@ -26,7 +26,7 @@ STEP_VALIDATE_EPOCH=1 # check performance on the validation set every EPOCH_VALI
 NUM_FOLD = 5
 
 #MODEL_NAME = ""
-CNN_MODEL_PATH = "../checkpoints/cnn_model"
+CNN_MODEL_PATH = "../checkpoints/cnn/cnn_model"
 
 # Following functions are helper functions that you can feel free to change
 def convert_image_data_to_float(image_raw):
@@ -250,16 +250,16 @@ def train_ae(x, placeholder_x, x_evualate = None):
             loss_val = loss_val/NUM_BATCHES
             end_time.append(datetime.now())
             print("{}: Epoch {} finished, Training loss: {:.6f}".format(end_time[-1], epoch, loss_val))
-             
-            # validation 
+
+            # validation
             if(( (epoch+1) % STEP_VALIDATE_EPOCH== 0) or (epoch+1 == NUM_ITERATIONS)):
                 loss_eva, feature_maps, img_rec = sess.run([loss, encode_result, img_reconstructed], feed_dict={placeholder_x:x_evualate})
                 loss_changes[epoch] = loss_eva
                 print("**** Loss in evaluation set: {:.6f}".format(loss_eva))
-        
+
             cae_saver.save(sess=sess, save_path=CAE_MODEL_PATH, global_step=epoch)
 
-        print("\r\nFinish Training under setting: lr={} batch_size={}".format(learning_rate, BATCH_SIZE)) 
+        print("\r\nFinish Training under setting: lr={} batch_size={}".format(learning_rate, BATCH_SIZE))
         print("==> Training time consumed: {}".format(end_time[-1] - start_time))
         print("==> Training loss: {:.6f}".format(loss_val))
         print("==> Best evaluation loss: {:.6f} in epoch {}" .format(np.min(loss_changes),np.argmin(loss_changes)))
@@ -272,13 +272,13 @@ def evaluate_ae(x,placeholder_x):
     with tf.Session() as sess:
         #saver.restore(sess,tf.train.latest_checkpoint("../checkpoints/well_trained_cae"))
         saver.restore(sess, "../checkpoints/well_trained_cae/cae_model-140") # select the model generated in epoch 3
-        
+
         loss_eva, feature_maps, img_rec = sess.run([loss, encode_result, img_reconstructed], feed_dict={placeholder_x:x})
         print("==>  Loss in evaluation set: {:.6f}".format(loss_eva))
         #idxs=[1,10,100] # random
         idxs = np.floor(np.random.random(2) * x.shape[0]).astype(int)
         for i in idxs:
-            visualize_ae(i, x, feature_maps, img_rec) 
+            visualize_ae(i, x, feature_maps, img_rec)
         plt.show()
     # show feature map and reconstructed images
 
@@ -448,7 +448,7 @@ def test_cnn(x, y, placeholder_x, placeholder_y):
 
 
 
-    
+
 
 def main():
     global BATCH_SIZE, learning_rate, momentum
