@@ -287,8 +287,10 @@ def test_cnn(x, y, placeholder_x, placeholder_y):
         feed_dict = {placeholder_x: x, placeholder_y: y}
         result_loss, correct_val = sess.run([loss, correct_cnt],feed_dict=feed_dict)
         result_accuracy = correct_val / x.shape[0]
-        print("Performance on test set.")
-        print("Loss: {}, Acc: {}".format(result_loss, result_accuracy))
+        print("\r\nPerformance on test set.")
+        print("==> Loss: {:.4f}, Acc: {:.4f}".format(result_loss, result_accuracy))
+
+        #TODO: ensemble the 5 model of the 5-fold
         '''
         for bi in range(NUM_BATCHES):
             batch_x = x[bi * BATCH_SIZE : (bi+1)*BATCH_SIZE]
