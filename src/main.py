@@ -44,12 +44,15 @@ def visualize_ae(i, x, features, reconstructed_image):
     :param reconstructed_image: autoencoder output
     :return:
     '''
-    plt.figure(0)
+    plt.figure("input img " + str(i))
     plt.imshow(x[i, :, :], cmap="gray")
-    plt.figure(1)
+    plt.title("input image", fontsize=16)
+    plt.figure("reconstructed image"+str(i))
     plt.imshow(reconstructed_image[i, :, :, 0], cmap="gray")
-    plt.figure(2)
+    plt.title("reconsturcted image", fontsize=16)
+    plt.figure("encoded features "+str(i))
     plt.imshow(np.reshape(features[i, :, :, :], (7, -1), order="F"), cmap="gray",)
+    plt.title("encoded features", fontsize=16)
 
 def build_cae_model(placeholder_x):
     with tf.variable_scope("cae") as scope:
@@ -110,11 +113,10 @@ def build_cae_model(placeholder_x):
         print("reconstruct layer shape : %s" % img_reconstructed.get_shape())
 
         #loss
-        loss = tf.reduce_sum(tf.square(img_reconstructed - img_float))
+        loss = tf.reduce_mean(tf.square(img_reconstructed - img_float))
         optimizer = tf.train.AdamOptimizer(learning_rate)
-        train_op = optimizer.minimize(loss)
-        #optimizer = tf.train.MomentumOptimizer(learning_rate,momentum)
-        #train_op = optimizer.minimize(loss, global_step = tf.train.get_global_step())
+        #optimizer = tf.train.MomentumOptimizer(learning_rate, momentum) # doesn't work for cae model
+        train_op = optimizer.minimize(loss,global_step = tf.train.get_global_step())
 
         return train_op, loss, encode_result, img_reconstructed
 
@@ -219,11 +221,12 @@ CAE_MODEL_PATH = "../checkpoints/cae/cae_model"
 #lr_cae = 0.001
 #bs_cae = 256
 
-def train_ae(x, placeholder_x):
+def train_ae(x, placeholder_x, x_evualate = None):
     # TODO: implement autoencoder training
     train_op, loss, encode_result, img_reconstructed = build_cae_model(placeholder_x)
-    cae_saver = tf.train.Saver(max_to_keep=10)
-    x = x[0:512]
+    cae_saver = tf.train.Saver(max_to_keep=50)
+    #x = x[0:512]
+    NUM_ITERATIONS = 150    #it takes more time to converge
     NUM_BATCHES = int(math.ceil(x.shape[0]/BATCH_SIZE)) #ceil, make sure to ultilize all the data. Size of each fold may not perfectly align
     loss_changes = np.zeros(NUM_ITERATIONS)
 
@@ -246,11 +249,38 @@ def train_ae(x, placeholder_x):
                 loss_val += loss_batch
             loss_val = loss_val/NUM_BATCHES
             end_time.append(datetime.now())
-            print("{}: Epoch {} finished, Training loss: {:.4f}".format(end_time[-1], epoch, loss_val))
-            loss_changes[epoch] = loss_val
+            print("{}: Epoch {} finished, Training loss: {:.6f}".format(end_time[-1], epoch, loss_val))
+             
+            # validation 
+            if(( (epoch+1) % STEP_VALIDATE_EPOCH== 0) or (epoch+1 == NUM_ITERATIONS)):
+                loss_eva, feature_maps, img_rec = sess.run([loss, encode_result, img_reconstructed], feed_dict={placeholder_x:x_evualate})
+                loss_changes[epoch] = loss_eva
+                print("**** Loss in evaluation set: {:.6f}".format(loss_eva))
+        
+            cae_saver.save(sess=sess, save_path=CAE_MODEL_PATH, global_step=epoch)
 
+        print("\r\nFinish Training under setting: lr={} batch_size={}".format(learning_rate, BATCH_SIZE)) 
         print("==> Training time consumed: {}".format(end_time[-1] - start_time))
-        print("==> Best loss: {} in epoch {}" .format(np.min(loss_changes),np.argmin(loss_changes)))
+        print("==> Training loss: {:.6f}".format(loss_val))
+        print("==> Best evaluation loss: {:.6f} in epoch {}" .format(np.min(loss_changes),np.argmin(loss_changes)))
+
+def evaluate_ae(x,placeholder_x):
+    # TODO: evaluate your autoencoder
+
+    train_op, loss, encode_result, img_reconstructed = build_cae_model(placeholder_x)
+    saver = tf.train.Saver()
+    with tf.Session() as sess:
+        #saver.restore(sess,tf.train.latest_checkpoint("../checkpoints/well_trained_cae"))
+        saver.restore(sess, "../checkpoints/well_trained_cae/cae_model-140") # select the model generated in epoch 3
+        
+        loss_eva, feature_maps, img_rec = sess.run([loss, encode_result, img_reconstructed], feed_dict={placeholder_x:x})
+        print("==>  Loss in evaluation set: {:.6f}".format(loss_eva))
+        #idxs=[1,10,100] # random
+        idxs = np.floor(np.random.random(2) * x.shape[0]).astype(int)
+        for i in idxs:
+            visualize_ae(i, x, feature_maps, img_rec) 
+        plt.show()
+    # show feature map and reconstructed images
 
 # Major interfaces
 def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
@@ -418,11 +448,7 @@ def test_cnn(x, y, placeholder_x, placeholder_y):
 
 
 
-
-def evaluate_ae(x,placeholder_x):
-    # TODO: evaluate your autoencoder
-    raise NotImplementedError
-
+    
 
 def main():
     global BATCH_SIZE, learning_rate, momentum
@@ -464,7 +490,9 @@ def main():
     elif args.task == "train_ae":
         file_unsupervised = np.load(datapath + "/data_autoencoder_train.npz")
         x_ae_train = file_unsupervised["x_ae_train"]
-        train_ae(x_ae_train, img_var)
+        file_unsupervised = np.load(datapath + "/data_autoencoder_eval.npz")
+        x_ae_eval = file_unsupervised["x_ae_eval"]
+        train_ae(x_ae_train, img_var, x_evualate = x_ae_eval)
     elif args.task == "evaluate_ae":
         file_unsupervised = np.load(datapath + "/data_autoencoder_eval.npz")
         x_ae_eval = file_unsupervised["x_ae_eval"]
