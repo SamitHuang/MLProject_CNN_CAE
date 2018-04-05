@@ -3,7 +3,7 @@ Task 1: CNN
 1) To start training and tuning with cross-validation, please run (e.g.): 
     $ python main.py --task=train_cnn --datapath=../datasets --lr=0.01 --batch_size=64 --momentum=0.9
     lr is short for learning rate. 
-    It will report the performance (in terms of ccuaracy and loss) on the training set in the end of training.
+    The performance (in terms of ccuaracy and loss) of the model on the training set and validation set  will be reported.
     
 2) To start training without cross-validation to save time, please specify --cross_validate=0, e.g:
     $ python main.py --task=train_cnn --datapath=../datasets --cross_validate=0 --lr=0.01 --batch_size=64 --momentum=0.9
@@ -13,7 +13,6 @@ Task 1: CNN
     
     It will load the model which is trained under the best parameter settings that I tuned: lr=0.01, batch_size=64, momentum=0.9
     Plase make sure  the "checkpoints" directory is in the right position as I have already uploaded.
-
 
 My tuning result using 5-fold cross validation:
 
@@ -39,7 +38,6 @@ Acc on training set     0.956
 Loss on training set    0.1297
 Acc on test set         0.8375
 Loss on test set        0.591
-
 
 
 Task 2: CAE
