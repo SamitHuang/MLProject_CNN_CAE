@@ -238,7 +238,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
     print("==> Accuarcy on training set: {:.4f}".format(acc_train_changes[0][-1]))
     print("==> Loss on validation set: {:.4f}".format(loss_validate_changes[0][-1]))
     print("==> Accuarcy on valiationc set: {:.4f}".format(acc_validate_changes[0][-1]))
-1
+    
     # average performance on 5-folds
     if(cross_validate==True):
         #loss_folds = loss_validate_changes[:, -1] #TODO: acc in last epoch may not be the best and stable enough to represent the performance in current fold. Use average filter.
