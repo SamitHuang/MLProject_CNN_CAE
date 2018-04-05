@@ -30,6 +30,7 @@ CNN_MODEL_PATH = "../checkpoints/cnn_model"
 
 # Following functions are helper functions that you can feel free to change
 def convert_image_data_to_float(image_raw):
+    #[None, 28, 28] -> [None, 28, 28, 1] and normalize 255 to 1
     img_float = tf.expand_dims(tf.cast(image_raw, tf.float32) / 255, axis=-1)
     return img_float
 
@@ -49,6 +50,74 @@ def visualize_ae(i, x, features, reconstructed_image):
     plt.imshow(reconstructed_image[i, :, :, 0], cmap="gray")
     plt.figure(2)
     plt.imshow(np.reshape(features[i, :, :, :], (7, -1), order="F"), cmap="gray",)
+
+def build_cae_model(placeholder_x):
+    with tf.variable_scope("cae") as scope:
+        shapes=[]
+        #input layer
+        img_float = convert_image_data_to_float(placeholder_x)
+
+        shapes.append(img_float.get_shape().as_list()) #shape[0], input shape of conv1
+
+        #conv1
+        w_conv1 = tf.get_variable("conv1_weight", shape=(5, 5, 1, 32),
+                                  initializer=tf.contrib.layers.xavier_initializer())
+        b_conv1 = tf.get_variable("conv1_bias", shape=(32), initializer=tf.contrib.layers.xavier_initializer())
+        y_conv1 = tf.nn.conv2d(img_float, w_conv1, strides=[1, 2, 2, 1], padding='SAME') + b_conv1
+        conv1= tf.nn.relu(y_conv1)
+        shapes.append(conv1.get_shape().as_list()) #shape[1]
+
+        #conv2
+        w_conv2 = tf.get_variable("conv2_weight", shape=(5,5,32,64), initializer=tf.contrib.layers.xavier_initializer())
+        b_conv2 = tf.get_variable("conv2_bias", shape=(64), initializer=tf.contrib.layers.xavier_initializer())
+        y_conv2 = tf.nn.conv2d(conv1, w_conv2, strides=[1,2,2,1], padding='SAME') + b_conv2
+        conv2 = tf.nn.relu(y_conv2)
+        shapes.append(conv2.get_shape().as_list())  #shape[2]
+
+        #conv3
+        w_conv3 = tf.get_variable("conv3_weight", shape=(3,3,64,2), initializer=tf.contrib.layers.xavier_initializer())
+        b_conv3 = tf.get_variable("conv3_bias", shape=(2), initializer=tf.contrib.layers.xavier_initializer())
+        y_conv3 = tf.nn.conv2d(conv2, w_conv3, strides=[1,1,1,1], padding='SAME') + b_conv3
+        conv3 = tf.nn.relu(y_conv3)
+
+        print("encoder layer shape : %s" % conv3.get_shape())
+        encode_result = conv3
+        #shapes.reverse()
+
+        #deconv1
+        w_deconv1 = tf.get_variable("deconv1_weight", shape=(3, 3, 64, 2), initializer=tf.contrib.layers.xavier_initializer())
+        b_deconv1 = tf.get_variable("deconv1_bias", shape=(64), initializer=tf.contrib.layers.xavier_initializer())
+        shape=shapes[2]
+        output_shape = tf.stack([tf.shape(img_float)[0], shape[1], shape[2], shape[3]]) #[batch_size, size_of_output_feature_map_of_conv2 x y, conv2_chs]
+        deconv1 = tf.nn.relu( tf.nn.conv2d_transpose(conv3, w_deconv1, output_shape, strides=[1,1,1,1], padding='SAME') + b_deconv1 ) #TODO: strides
+
+        #deconv2
+        w_deconv2 = tf.get_variable("deconv2_weight", shape=(5, 5, 32, 64), initializer=tf.contrib.layers.xavier_initializer())
+        b_deconv2 = tf.get_variable("deconv2_bias", shape=(32), initializer=tf.contrib.layers.xavier_initializer())
+        shape=shapes[1]
+        output_shape = tf.stack([tf.shape(img_float)[0], shape[1], shape[2], shape[3]]) #[batch_size, size_of_output_feature_map1_conv1 x y, conv1_chs]
+        deconv2 = tf.nn.relu( tf.nn.conv2d_transpose(deconv1, w_deconv2, output_shape, strides=[1,2,2,1], padding='SAME') + b_deconv2 )
+
+        #deconv3
+        w_deconv3 = tf.get_variable("deconv3_weight", shape=(5, 5, 1, 32), initializer=tf.contrib.layers.xavier_initializer())
+        b_deconv3 = tf.get_variable("deconv3_bias", shape=(1), initializer=tf.contrib.layers.xavier_initializer())
+        shape=shapes[0]
+        output_shape = tf.stack([tf.shape(img_float)[0], shape[1], shape[2], shape[3]]) #[batch_size, 28, 28, 1]
+        deconv3 = tf.nn.relu( tf.nn.conv2d_transpose(deconv2, w_deconv3, output_shape, strides=[1,2,2,1], padding='SAME') + b_deconv3 )
+
+        img_reconstructed = deconv3
+
+        print("reconstruct layer shape : %s" % img_reconstructed.get_shape())
+
+        #loss
+        loss = tf.reduce_sum(tf.square(img_reconstructed - img_float))
+        optimizer = tf.train.AdamOptimizer(learning_rate)
+        train_op = optimizer.minimize(loss)
+        #optimizer = tf.train.MomentumOptimizer(learning_rate,momentum)
+        #train_op = optimizer.minimize(loss, global_step = tf.train.get_global_step())
+
+        return train_op, loss, encode_result, img_reconstructed
+
 
 def build_cnn_model(placeholder_x, placeholder_y):
     with tf.variable_scope("cnn") as scope:
@@ -144,6 +213,44 @@ def build_linear_model(placeholder_x,placeholder_y):
     return params, train_op, loss, correct_cnt, predictions
 
 test_full_training_set = False
+
+
+CAE_MODEL_PATH = "../checkpoints/cae/cae_model"
+#lr_cae = 0.001
+#bs_cae = 256
+
+def train_ae(x, placeholder_x):
+    # TODO: implement autoencoder training
+    train_op, loss, encode_result, img_reconstructed = build_cae_model(placeholder_x)
+    cae_saver = tf.train.Saver(max_to_keep=10)
+
+    NUM_BATCHES = int(math.ceil(x.shape[0]/BATCH_SIZE)) #ceil, make sure to ultilize all the data. Size of each fold may not perfectly align
+    loss_changes = np.zeros((1,NUM_ITERATIONS))
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+        start_time = datetime.now()
+        print("---------------------{} Training CAE -------------------".format(start_time))
+        print("Num samples to train: {}, num_batches: {}".format(x.shape[0], NUM_BATCHES))
+        for epoch in range(NUM_ITERATIONS):
+            # 1) sample-2: shuffle with fixed random seed in each epoch and split into batches. TODO: it's not efficiency to copy data in each epoch. indexing is more efficient.
+            shuffledX = shuffle(x,  random_state=epoch)
+            loss_val= 0.0; acc_val= 0.0; num_trained_sample = 0; end_time=[]
+
+            for bi  in range(NUM_BATCHES):
+                batch_x = shuffledX[bi * BATCH_SIZE : (bi+1)*BATCH_SIZE]
+                feed_dict = {placeholder_x: batch_x}
+                #2) training
+                _, loss_batch, feature_maps, img_rec = sess.run([train_op, loss, encode_result, img_reconstructed],  feed_dict=feed_dict)
+                loss_val += loss_batch
+
+            end_time.append(datetime.now())
+            print("{}: Epoch {} finished, Training loss: {:.4f}".format(end_time[-1], epoch, loss_val))
+            loss_changes[epoch] = loss_val
+
+        print("==> Training time consumed: {}".format(end_time[-1] - start_time))
+        print("==> Best loss: {} in epoch {}" .format(np.min(loss_changes),np.argmin(loss_changes)))
 
 # Major interfaces
 def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
@@ -308,9 +415,8 @@ def test_cnn(x, y, placeholder_x, placeholder_y):
     return result_accuracy
 
 
-def train_ae(x, placeholder_x):
-    # TODO: implement autoencoder training
-    raise NotImplementedError
+
+
 
 
 def evaluate_ae(x,placeholder_x):
