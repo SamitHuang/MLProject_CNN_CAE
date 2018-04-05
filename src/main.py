@@ -21,7 +21,7 @@ batch_size_tune = [32, 256, 512]
 momentum_factor_tune = [0.1, 0.5, 0.9]
 
 #settings
-NUM_ITERATIONS= 50 
+NUM_ITERATIONS= 50
 STEP_VALIDATE_EPOCH=1 # check performance on the validation set every EPOCH_VALIDATE_STEP epochs
 NUM_FOLD = 5
 
@@ -168,6 +168,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
     acc_validate_changes = np.zeros((len(fold_settings), NUM_ITERATIONS),  dtype = np.float32)
 
     print("\r\nStart training\r\nParams setting: learning_rate={}, batch size={}, momentum={}".format(learning_rate, BATCH_SIZE, momentum))
+    start_time_cross = datetime.now()
     for fold_idx, [train_index, validation_index] in enumerate(fold_settings):
         #print("TRAIN:", train_index, len(train_index),  "TEST:", validation_index, len(validation_index))
         x_train, y_train = x[train_index],y[train_index]
@@ -231,14 +232,15 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
             print("==> Training time consumed: {}".format(end_time[-1] - start_time))
             print("==> Best acc: {} in epoch {}" .format(np.max(acc_validate_changes[fold_idx]),np.argmax(acc_validate_changes[fold_idx])))
 
+    end_time_cross = datetime.now()
     # comput the performance of the training set
-    print("\r\nFinish training \r\nParams setting: learning_rate={}, batch size={}, momentum={}".format(learning_rate, BATCH_SIZE, momentum))
-    #best_epoch = np.argmax(acc_train_changs[]a)
-    print("==> Loss on training set: {:.4f}".format(loss_train_changes[0][-1]))
-    print("==> Accuarcy on training set: {:.4f}".format(acc_train_changes[0][-1]))
-    print("==> Loss on validation set: {:.4f}".format(loss_validate_changes[0][-1]))
-    print("==> Accuarcy on valiationc set: {:.4f}".format(acc_validate_changes[0][-1]))
-    
+    print("\r\nFinish training in {} \r\nParams setting: learning_rate={}, batch size={}, momentum={}".format(end_time_cross - start_time_cross, learning_rate, BATCH_SIZE, momentum))
+    #best_epoch = np.argmax(acc_train_changs[])
+    print("==> Loss on training set of fold 0: {:.4f}".format(loss_train_changes[0][-1]))
+    print("==> Accuarcy on training set of fold 0: {:.4f}".format(acc_train_changes[0][-1]))
+    print("==> Loss on validation set of fold 0: {:.4f}".format(loss_validate_changes[0][-1]))
+    print("==> Accuarcy on valiationc set of fold 0: {:.4f}".format(acc_validate_changes[0][-1]))
+
     # average performance on 5-folds
     if(cross_validate==True):
         #loss_folds = loss_validate_changes[:, -1] #TODO: acc in last epoch may not be the best and stable enough to represent the performance in current fold. Use average filter.
@@ -247,7 +249,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
         #acc_folds = acc_validate_changes[:,-1]
         acc_folds = np.max(acc_validate_changes, axis=1)
         print("\r\n==> {}-fold cross_validation result (best acc among each fold): {} \r\n==>Average acc over 5-fold: {:.4f} ".format(NUM_FOLD, acc_folds, np.mean(acc_folds)))
-        print("\t==>Average loss over 5-fold: {:.4f}".format(np.mean(loss_folds)))
+        print("==>Average loss over 5-fold: {:.4f}".format(np.mean(loss_folds)))
     # store the performance change over time into npz
     hyper_param_str = "lr{}bs{}mf{}".format(learning_rate, BATCH_SIZE, momentum)
     np.savez_compressed('./performance_change_'+hyper_param_str+'.npz',
@@ -271,6 +273,7 @@ def get_test_set():
 
 def test_cnn(x, y, placeholder_x, placeholder_y):
     # TODO: implement CNN testing
+
     params, train_op, loss, correct_cnt, predictions = build_cnn_model(placeholder_x, placeholder_y)
     with tf.Session() as sess:
         #saver = tf.train.import_meta_graph(CNN_MODEL_PATH + "-4.meta")
@@ -326,7 +329,7 @@ def main():
     parser.add_argument('--momentum',default=0.9,type=float, required=False, help='momentum facotr of SGD optimizer')
     parser.add_argument('--batch_size',default=256,type=int, required=False, help='batch size')
     args = parser.parse_args()
-    
+
     datapath = args.datapath
     flag_cross_validate = args.cross_validate
     BATCH_SIZE = args.batch_size
