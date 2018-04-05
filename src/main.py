@@ -21,12 +21,12 @@ batch_size_tune = [32, 256, 512]
 momentum_factor_tune = [0.1, 0.5, 0.9]
 
 #settings
-NUM_ITERATIONS= 10
-STEP_VALIDATE_EPOCH=5 # check performance on the validation set every EPOCH_VALIDATE_STEP epochs
+NUM_ITERATIONS= 50 
+STEP_VALIDATE_EPOCH=1 # check performance on the validation set every EPOCH_VALIDATE_STEP epochs
 NUM_FOLD = 5
 
 #MODEL_NAME = ""
-CNN_MODEL_PATH = "../checkpoints/tuning/cnn_model"
+CNN_MODEL_PATH = "../checkpoints/tuning2/cnn_model"
 
 # Following functions are helper functions that you can feel free to change
 def convert_image_data_to_float(image_raw):
@@ -148,9 +148,8 @@ test_full_training_set = False
 # Major interfaces
 def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
     #TODO: reduce size for debug
-    x = x[0:512]
-    y = y[0:512]
-
+    #x = x[0:512]
+    #y = y[0:512]
 
     params, train_op, loss, correct_cnt, predictions = build_cnn_model(placeholder_x, placeholder_y)
     cnn_saver = tf.train.Saver() #(var_list=params)
@@ -168,6 +167,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
     loss_validate_changes = np.zeros((len(fold_settings), NUM_ITERATIONS),  dtype = np.float32)
     acc_validate_changes = np.zeros((len(fold_settings), NUM_ITERATIONS),  dtype = np.float32)
 
+    print("\r\nStart training\r\nParams setting: learning_rate={}, batch size={}, momentum={}".format(learning_rate, BATCH_SIZE, momentum))
     for fold_idx, [train_index, validation_index] in enumerate(fold_settings):
         #print("TRAIN:", train_index, len(train_index),  "TEST:", validation_index, len(validation_index))
         x_train, y_train = x[train_index],y[train_index]
@@ -183,7 +183,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
             sess.run(tf.global_variables_initializer())
             sess.run(tf.local_variables_initializer())
             start_time = datetime.now()
-            print("----------------------------\r\n {} Start training Fold {}".format(start_time, fold_idx))
+            print("---------------------{} Training Fold {} -------------------".format(start_time, fold_idx))
             print("Num samples to train: {}, num_batches: {}".format(x_train.shape[0], NUM_BATCHES))
             for epoch in range(NUM_ITERATIONS):
                 # 1) sample-2: shuffle with fixed random seed in each epoch and split into batches. TODO: it's not efficiency to copy data in each epoch. indexing is more efficient.
@@ -206,7 +206,7 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
                 end_time.append(datetime.now())
                 acc_val = acc_val/num_trained_sample
                 loss_val = loss_val/NUM_BATCHES
-                print("{}: Epoch {} finished, loss: {:.4f}, acc: {:.4f}".format(end_time[-1], epoch, loss_val, acc_val))
+                print("{}: Epoch {} finished, Training loss: {:.4f}, acc: {:.4f}".format(end_time[-1], epoch, loss_val, acc_val))
 
                 #store the performance and the model
                 loss_train_changes[fold_idx][epoch] = loss_val
@@ -223,27 +223,31 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
                     feed_dict_validate={placeholder_x: x_validate, placeholder_y: y_validate}
                     loss_validate, correct_cnt_validate  = sess.run([loss, correct_cnt],  feed_dict=feed_dict_validate)
                     acc_validate = correct_cnt_validate/x_validate.shape[0]
-                    print("**** On validation set: loss: {:.4f}, acc: {:.4f}".format(loss_validate, acc_validate))
+                    print("**** Validation loss: {:.4f}, acc: {:.4f}".format(loss_validate, acc_validate))
 
                     loss_validate_changes[fold_idx][epoch] = loss_validate
                     acc_validate_changes[fold_idx][epoch] = acc_validate
 
-            print("Time consumed: {}".format(end_time[-1] - start_time))
+            print("==> Training time consumed: {}".format(end_time[-1] - start_time))
+            print("==> Best acc: {} in epoch {}" .format(np.max(acc_validate_changes[fold_idx]),np.argmax(acc_validate_changes[fold_idx])))
 
     # comput the performance of the training set
-    print("\r\nFinish training\r\nParams setting: learning_rate={}, batch size={}, momentum={}".format(learning_rate, BATCH_SIZE, momentum))
+    print("\r\nFinish training \r\nParams setting: learning_rate={}, batch size={}, momentum={}".format(learning_rate, BATCH_SIZE, momentum))
+    #best_epoch = np.argmax(acc_train_changs[]a)
     print("==> Loss on training set: {:.4f}".format(loss_train_changes[0][-1]))
     print("==> Accuarcy on training set: {:.4f}".format(acc_train_changes[0][-1]))
     print("==> Loss on validation set: {:.4f}".format(loss_validate_changes[0][-1]))
     print("==> Accuarcy on valiationc set: {:.4f}".format(acc_validate_changes[0][-1]))
-
+1
     # average performance on 5-folds
     if(cross_validate==True):
-        loss_folds = loss_validate_changes[:, -1] #TODO: acc in last epoch may not be the best and stable enough to represent the performance in current fold. Use average filter.
+        #loss_folds = loss_validate_changes[:, -1] #TODO: acc in last epoch may not be the best and stable enough to represent the performance in current fold. Use average filter.
+        loss_folds = np.min(loss_validate_changes, axis=1)
         # acc of each validatation set in  k-folds
-        acc_folds = acc_validate_changes[:,-1]
-        print("\r\n==> Average acc in 5-folds cross_validation: {:.4f} ".format(np.mean(acc_folds)))
-
+        #acc_folds = acc_validate_changes[:,-1]
+        acc_folds = np.max(acc_validate_changes, axis=1)
+        print("\r\n==> {}-fold cross_validation result (best acc among each fold): {} \r\n==>Average acc over 5-fold: {:.4f} ".format(NUM_FOLD, acc_folds, np.mean(acc_folds)))
+        print("\t==>Average loss over 5-fold: {:.4f}".format(np.mean(loss_folds)))
     # store the performance change over time into npz
     hyper_param_str = "lr{}bs{}mf{}".format(learning_rate, BATCH_SIZE, momentum)
     np.savez_compressed('./performance_change_'+hyper_param_str+'.npz',
@@ -255,8 +259,8 @@ def train_cnn(x, y, placeholder_x, placeholder_y, cross_validate=False):
         print("\r\nPerformace changes over time under: learning_rate={}, batch size={}, momentum={}".format(learning_rate, BATCH_SIZE, momentum))
         print("loss changes in training set:\r\n",loss_train_changes[0])
         print("acc changes in training set:\r\n",acc_train_changes[0])
-        print("loss changes in validation set:\r\n",loss_validate_changes[0])
-        print("acc changes in validation set:\r\n",acc_validate_changes[0])
+        print("loss changes (every {} epochs) in validation set:\r\n{}".format(STEP_VALIDATE_EPOCH, loss_validate_changes[0]))
+        print("acc changes (every {} epochs) in validation set:\r\n{}".format(STEP_VALIDATE_EPOCH, acc_validate_changes[0]))
 
 def get_test_set():
     file_test = np.load("../datasets/data_classifier_test.npz")
@@ -310,18 +314,25 @@ def evaluate_ae(x,placeholder_x):
 
 
 def main():
+    global BATCH_SIZE, learning_rate, momentum
+
     parser = argparse.ArgumentParser(description='COMP5212 Programming Project 2')
     parser.add_argument('--task', default="train_cnn", type=str,
                         help='Select the task, train_cnn, test_cnn, '
                              'train_ae, evaluate_ae, ')
-    parser.add_argument('--datapath',default="./data",type=str, required=False, help='Select the path to the data directory')
-    parser.add_argument('--cross_validate',default=0,type=int, required=False, help='Set 1 to use cross validation for tuning')
+    parser.add_argument('--datapath',default="../datasets",type=str, required=False, help='Select the path to the data directory')
+    parser.add_argument('--cross_validate',default=1,type=int, required=False, help='Set 1 to use cross validation for tuning')
+    parser.add_argument('--lr',default=0.001,type=float, required=False, help='learning rate')
+    parser.add_argument('--momentum',default=0.9,type=float, required=False, help='momentum facotr of SGD optimizer')
+    parser.add_argument('--batch_size',default=256,type=int, required=False, help='batch size')
     args = parser.parse_args()
+    
     datapath = args.datapath
     flag_cross_validate = args.cross_validate
-    # TODO: for debug
-    datapath = "../datasets"
-    #args.task ="train_cnn"
+    BATCH_SIZE = args.batch_size
+    learning_rate = args.lr
+    momentum = args.momentum
+
     # set up the input image size, create the correspond place holder.
     with tf.variable_scope("placeholders"):
         img_var = tf.placeholder(tf.uint8, shape=(None, 28, 28), name="img")
