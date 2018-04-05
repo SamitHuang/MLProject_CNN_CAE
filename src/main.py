@@ -223,9 +223,9 @@ def train_ae(x, placeholder_x):
     # TODO: implement autoencoder training
     train_op, loss, encode_result, img_reconstructed = build_cae_model(placeholder_x)
     cae_saver = tf.train.Saver(max_to_keep=10)
-
+    x = x[0:512]
     NUM_BATCHES = int(math.ceil(x.shape[0]/BATCH_SIZE)) #ceil, make sure to ultilize all the data. Size of each fold may not perfectly align
-    loss_changes = np.zeros((1,NUM_ITERATIONS))
+    loss_changes = np.zeros(NUM_ITERATIONS)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -244,7 +244,7 @@ def train_ae(x, placeholder_x):
                 #2) training
                 _, loss_batch, feature_maps, img_rec = sess.run([train_op, loss, encode_result, img_reconstructed],  feed_dict=feed_dict)
                 loss_val += loss_batch
-
+            loss_val = loss_val/NUM_BATCHES
             end_time.append(datetime.now())
             print("{}: Epoch {} finished, Training loss: {:.4f}".format(end_time[-1], epoch, loss_val))
             loss_changes[epoch] = loss_val
